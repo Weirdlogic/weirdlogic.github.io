@@ -1,15 +1,44 @@
-// src/components/Dashboard/ResultsPanel.jsx
 import React from 'react';
 import { Card } from '../common/Card';
 import { IPHistory } from './IPHistory';
-import { IPTagging } from './IPTagging';
+import InvestigationDetails from './InvestigationDetails';
 import { EmailAlerts } from './Alerts/EmailAlerts';
 import { storage } from '../../utils/storage';
 
 export const ResultsPanel = ({ data, onExport }) => {
-  const handleTagAdded = () => {
-    // Refresh the history display if needed
+  // Get latest analyst assessment
+  const getLatestAnalystScore = (ip) => {
+    const storageData = storage.getData();
+    const ipData = storageData.ipHistory[ip];
+    if (!ipData?.tags) return null;
+    
+    // Find the most recent tag with an analyst score
+    const latestAssessment = ipData.tags
+      .filter(tag => tag.analystRiskScore !== null)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      
+    return latestAssessment ? {
+      score: latestAssessment.analystRiskScore,
+      justification: latestAssessment.riskJustification,
+      date: new Date(latestAssessment.createdAt),
+      analyst: latestAssessment.createdBy
+    } : null;
   };
+
+  const handleInvestigationSave = (investigationData) => {
+    storage.tagIP(
+      investigationData.ip,
+      investigationData.ticketNumber,
+      'analyst@company.com',
+      investigationData.notes,
+      investigationData.client,
+      investigationData.behaviors,
+      investigationData.analystRiskScore,
+      investigationData.riskJustification
+    );
+  };
+
+  const analystAssessment = getLatestAnalystScore(data.ip);
 
   return (
     <div className="space-y-6 mt-4">
@@ -47,10 +76,13 @@ export const ResultsPanel = ({ data, onExport }) => {
           </div>
 
           {/* Risk Score Section */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            {/* API Risk Scores */}
             {Object.entries(data.risk_score).map(([key, value]) => (
               <div key={key} className="p-4 border rounded-lg text-center">
-                <div className="text-sm text-gray-500">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                <div className="text-sm text-gray-500">
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                </div>
                 <div className={`text-2xl font-bold ${
                   value >= 80 ? 'text-red-600' :
                   value >= 50 ? 'text-yellow-600' :
@@ -60,8 +92,26 @@ export const ResultsPanel = ({ data, onExport }) => {
                 </div>
               </div>
             ))}
+
+            {/* Analyst Assessment Score */}
+            {analystAssessment && (
+              <div className="p-4 border-2 border-blue-500 rounded-lg text-center">
+                <div className="text-sm text-gray-500">Analyst Assessment</div>
+                <div className={`text-2xl font-bold ${
+                  analystAssessment.score >= 80 ? 'text-red-600' :
+                  analystAssessment.score >= 50 ? 'text-yellow-600' :
+                  'text-green-600'
+                }`}>
+                  {analystAssessment.score}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {analystAssessment.date.toLocaleDateString()}
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Rest of the component remains the same */}
           {/* Security Concerns */}
           {data.summary.structured_summary.concerns.length > 0 && (
             <div className="mb-6">
@@ -99,8 +149,11 @@ export const ResultsPanel = ({ data, onExport }) => {
       {/* Investigation History */}
       <IPHistory ip={data.ip} />
 
-      {/* Tagging System */}
-      <IPTagging ip={data.ip} onTagAdded={handleTagAdded} />
+      {/* Enhanced Investigation Details */}
+      <InvestigationDetails 
+        ip={data.ip}
+        onSave={handleInvestigationSave}
+      />
 
       {/* Email Alerts */}
       <EmailAlerts ip={data.ip} />

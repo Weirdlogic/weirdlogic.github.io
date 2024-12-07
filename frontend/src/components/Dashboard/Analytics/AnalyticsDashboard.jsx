@@ -1,108 +1,181 @@
-// src/components/Dashboard/Analytics/AnalyticsDashboard.jsx
 import React from 'react';
 import { Card } from '../../common/Card';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import { storage } from '../../../utils/storage';
 
-export const AnalyticsDashboard = () => {
+const PrimaryStats = () => {
   const data = storage.getData();
-
-  // Prepare data for charts
-  const searchData = data.analytics.mostSearchedIPs.map(item => ({
-    ip: item.ip,
-    searches: item.searchCount
-  }));
-
-  // Get ticket relationship data
-  const relationshipData = Object.entries(data.ticketRelationships).map(([ticket, info]) => ({
-    ticket,
-    ipCount: info.relatedIPs.length,
-    lastUpdated: new Date(info.lastUpdated).toLocaleDateString()
-  }));
+  const ipHistory = data.ipHistory || {};
+  
+  // Calculate statistics
+  const stats = {
+    totalIPs: Object.keys(ipHistory).length,
+    avgRiskScore: 0, // We'll add this when we have risk scores
+    topClient: calculateTopClient(ipHistory),
+    topBehavior: calculateTopBehavior(ipHistory)
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium">Total IPs Investigated</h3>
-            <p className="text-3xl font-bold mt-2">
-              {Object.keys(data.ipHistory).length}
-            </p>
-          </div>
-        </Card>
-        
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium">Active Tickets</h3>
-            <p className="text-3xl font-bold mt-2">
-              {Object.keys(data.ticketRelationships).length}
-            </p>
-          </div>
-        </Card>
-        
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-medium">Total Investigations</h3>
-            <p className="text-3xl font-bold mt-2">
-              {Object.values(data.ipHistory).reduce((acc, curr) => acc + curr.searchCount, 0)}
-            </p>
-          </div>
-        </Card>
-      </div>
-
-      {/* Most Searched IPs Chart */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4">Most Investigated IPs</h3>
-          <div className="h-64">
-            <BarChart width={800} height={240} data={searchData}>
-              <XAxis dataKey="ip" />
-              <YAxis />
+        <h3 className="text-sm text-gray-500">total IPs</h3>
+        <p className="text-2xl font-semibold">{stats.totalIPs}</p>
+      </Card>
+      <Card>
+        <h3 className="text-sm text-gray-500">avg Risk Score</h3>
+        <p className="text-2xl font-semibold">{stats.avgRiskScore}</p>
+      </Card>
+      <Card>
+        <h3 className="text-sm text-gray-500">top Client</h3>
+        <p className="text-2xl font-semibold">{stats.topClient || 'None'}</p>
+      </Card>
+      <Card>
+        <h3 className="text-sm text-gray-500">top Behavior</h3>
+        <p className="text-2xl font-semibold">{stats.topBehavior || 'None'}</p>
+      </Card>
+    </div>
+  );
+};
+
+const ClientAnalysis = () => {
+  const data = storage.getData();
+  const clientData = processClientData(data.ipHistory || {});
+
+  return (
+    <Card className="mt-6">
+      <h2 className="text-lg font-medium mb-4">Client Analysis</h2>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={clientData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="client" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="attackCount" fill="#3b82f6" name="Attack Count" />
+            <Bar dataKey="avgRiskScore" fill="#ef4444" name="Avg Risk Score" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+};
+
+const BehaviorPatterns = () => {
+  const data = storage.getData();
+  const behaviorData = processBehaviorData(data.ipHistory || {});
+
+  return (
+    <Card className="mt-6">
+      <h2 className="text-lg font-medium mb-4">Behavior Patterns</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={behaviorData}
+                dataKey="count"
+                nameKey="behavior"
+                fill="#3b82f6"
+              />
               <Tooltip />
               <Legend />
-              <Bar dataKey="searches" fill="#3B82F6" name="Search Count" />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={behaviorData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="behavior" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#3b82f6" name="Occurrences" />
             </BarChart>
-          </div>
+          </ResponsiveContainer>
         </div>
-      </Card>
+      </div>
+    </Card>
+  );
+};
 
-      {/* Recent Investigations */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-medium mb-4">Recent Investigations</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Searched</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Search Count</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Ticket</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {Object.entries(data.ipHistory)
-                  .sort((a, b) => new Date(b[1].lastSearched) - new Date(a[1].lastSearched))
-                  .slice(0, 10)
-                  .map(([ip, info]) => (
-                    <tr key={ip}>
-                      <td className="px-6 py-4 whitespace-nowrap">{ip}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {new Date(info.lastSearched).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{info.searchCount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {info.investigations[0]?.ticketNumber || 'N/A'}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
+// Helper functions
+const calculateTopClient = (ipHistory) => {
+  const clientCount = {};
+  Object.values(ipHistory).forEach(ip => {
+    ip.tags?.forEach(tag => {
+      if (tag.client) {
+        clientCount[tag.client] = (clientCount[tag.client] || 0) + 1;
+      }
+    });
+  });
+  return Object.entries(clientCount)
+    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+};
+
+const calculateTopBehavior = (ipHistory) => {
+  const behaviorCount = {};
+  Object.values(ipHistory).forEach(ip => {
+    ip.tags?.forEach(tag => {
+      tag.behaviors?.forEach(behavior => {
+        behaviorCount[behavior] = (behaviorCount[behavior] || 0) + 1;
+      });
+    });
+  });
+  return Object.entries(behaviorCount)
+    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+};
+
+const processClientData = (ipHistory) => {
+  const clientStats = {};
+  
+  Object.values(ipHistory).forEach(ip => {
+    ip.tags?.forEach(tag => {
+      if (tag.client) {
+        if (!clientStats[tag.client]) {
+          clientStats[tag.client] = {
+            attackCount: 0,
+            avgRiskScore: 0
+          };
+        }
+        clientStats[tag.client].attackCount++;
+      }
+    });
+  });
+
+  return Object.entries(clientStats).map(([client, stats]) => ({
+    client,
+    attackCount: stats.attackCount,
+    avgRiskScore: stats.avgRiskScore || 0
+  }));
+};
+
+const processBehaviorData = (ipHistory) => {
+  const behaviorCount = {};
+  
+  Object.values(ipHistory).forEach(ip => {
+    ip.tags?.forEach(tag => {
+      tag.behaviors?.forEach(behavior => {
+        behaviorCount[behavior] = (behaviorCount[behavior] || 0) + 1;
+      });
+    });
+  });
+
+  return Object.entries(behaviorCount).map(([behavior, count]) => ({
+    behavior,
+    count
+  }));
+};
+
+export const AnalyticsDashboard = () => {
+  return (
+    <div className="space-y-6">
+      <PrimaryStats />
+      <ClientAnalysis />
+      <BehaviorPatterns />
     </div>
   );
 };

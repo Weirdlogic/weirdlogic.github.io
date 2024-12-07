@@ -12,10 +12,8 @@ import { ReportGenerator } from './ReportGenerator';
 import { ExportTools } from './ExportTools';
 import { RealtimeMonitor } from './RealtimeMonitor';
 import { storage } from '../../utils/storage';
-console.log(storage);
 import { AnalyticsDashboard } from './Analytics/AnalyticsDashboard';
 import { IPRelationshipGraph } from './Relationships/IPRelationshipGraph';
-import { EmailAlerts } from './Alerts/EmailAlerts';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('search');
@@ -27,9 +25,18 @@ const Dashboard = () => {
   const [monitoredIPs, setMonitoredIPs] = useState([]);
 
   useEffect(() => {
-    // Load history from localStorage on mount
+    // Initialize storage on mount
+    storage.initializeStorage();
+    
+    // Load history from localStorage
     const savedHistory = JSON.parse(localStorage.getItem('ipHistory') || '[]');
     setSearchHistory(savedHistory);
+    
+    // Load monitored IPs from storage
+    const data = storage.getData();
+    const monitoredList = Object.keys(data.ipHistory || {})
+      .filter(ip => data.ipHistory[ip].isMonitored);
+    setMonitoredIPs(monitoredList);
   }, []);
 
   const analyzeSingleIP = async (ip) => {
@@ -37,12 +44,23 @@ const Dashboard = () => {
     setError(null);
     try {
       const response = await axios.get(`http://127.0.0.1:8000/analysis/analyze/${ip}/`);
-      setCurrentAnalysis(response.data);
+      const analysisData = response.data;
+      setCurrentAnalysis(analysisData);
       
-      // Track this search in storage
-      storage.addIPInvestigation(ip, 'analyst@company.com'); // We'll add real authentication later
+      // Track this search with enhanced data structure
+      storage.addIPInvestigation(
+        ip,
+        'analyst@company.com', // We'll add real authentication later
+        '', // Initial ticket number
+        '', // Initial notes
+        '', // Initial client
+        []  // Initial behaviors
+      );
       
-      return response.data;
+      // Add to history with enhanced data
+      addToHistory(analysisData);
+      
+      return analysisData;
     } catch (err) {
       setError(err.message);
       return null;
@@ -56,7 +74,9 @@ const Dashboard = () => {
       ip: data.ip,
       timestamp: new Date().toISOString(),
       score: data.risk_score.combined,
-      summary: data.summary.structured_summary
+      summary: data.summary.structured_summary,
+      client: '', // Added for client tracking
+      behaviors: [], // Added for behavior tracking
     };
     const updatedHistory = [newEntry, ...searchHistory].slice(0, 10);
     setSearchHistory(updatedHistory);
@@ -85,7 +105,8 @@ const Dashboard = () => {
     try {
       const results = await Promise.all(ips.map(ip => analyzeSingleIP(ip)));
       if (results[0] && results[1]) {
-        return results; // Return the comparison results
+        setComparisonData(results);
+        return results;
       }
     } catch (err) {
       setError('Error comparing IPs');
@@ -94,11 +115,20 @@ const Dashboard = () => {
   };
 
   const toggleMonitorIP = (ip) => {
-    setMonitoredIPs(prev => 
-      prev.includes(ip) 
+    setMonitoredIPs(prev => {
+      const newMonitoredIPs = prev.includes(ip)
         ? prev.filter(item => item !== ip)
-        : [...prev, ip]
-    );
+        : [...prev, ip];
+      
+      // Update monitoring status in storage
+      const data = storage.getData();
+      if (data.ipHistory[ip]) {
+        data.ipHistory[ip].isMonitored = !prev.includes(ip);
+        storage.saveData(data);
+      }
+      
+      return newMonitoredIPs;
+    });
   };
 
   const tabs = [
@@ -178,13 +208,10 @@ const Dashboard = () => {
                 </div>
               )}
               {currentAnalysis && (
-                <div className="space-y-4">
-                  <ResultsPanel 
-                    data={currentAnalysis} 
-                    onExport={handleExport}
-                  />
-                  <EmailAlerts ip={currentAnalysis.ip} />
-                </div>
+                <ResultsPanel 
+                  data={currentAnalysis} 
+                  onExport={handleExport}
+                />
               )}
             </>
           )}
