@@ -3,54 +3,99 @@ import { Tag, X } from 'lucide-react';
 
 const CLIENT_TAGS = ['HANZA', 'LHV', 'ERGO', 'LUMINOR'];
 
+const CLIENT_IMPACT = {
+  'Critical': { weight: 1.5, class: 'bg-red-100 text-red-800' },
+  'High Value': { weight: 1.3, class: 'bg-orange-100 text-orange-800' },
+  'Standard': { weight: 1.0, class: 'bg-blue-100 text-blue-800' },
+  'Non-Client': { weight: 0.8, class: 'bg-gray-100 text-gray-800' }
+};
+
+const RESPONSE_ACTIONS = [
+  { id: 'Blocked_at_Firewall', label: 'Blocked at Firewall', weight: -20 },
+  { id: 'WAF_Rules_Added', label: 'WAF Rules Added', weight: -15 },
+  { id: 'Under_Active_Monitoring', label: 'Under Active Monitoring', weight: -10 },
+  { id: 'Client_Notified', label: 'Client Notified', weight: -5 }
+];
+
+const INFRASTRUCTURE_TYPES = [
+  { id: 'Known_Good_Service', label: 'Known Good Service', modifier: -0.5 },
+  { id: 'CDN_Cloud_Provider', label: 'CDN/Cloud Provider', modifier: -0.3 },
+  { id: 'VPN_Proxy', label: 'VPN/Proxy', modifier: 0.2 },
+  { id: 'Tor_Exit_Node', label: 'Tor Exit Node', modifier: 0.3 }
+];
+
 const BEHAVIOR_TAGS = {
-  'Authentication': [
-    'Failed_Login_Attempts',
-    'Password_Spraying',
-    'Credential_Stuffing',
-    'MFA_Bypass_Attempt'
-  ],
-  'Scanning/Recon': [
-    'Port_Scan',
-    'Directory_Enumeration',
-    'Vulnerability_Scan',
-    'API_Enumeration'
-  ],
-  'Data Access': [
-    'Data_Exfiltration',
-    'Unauthorized_Access',
-    'File_Download',
-    'Sensitive_Data_Access'
-  ],
-  'Application Attacks': [
-    'SQL_Injection',
-    'XSS_Attempt',
-    'File_Upload',
-    'Command_Injection'
-  ],
-  'Network Behavior': [
-    'C2_Communication',
-    'Abnormal_Traffic',
-    'DDoS_Attempt',
-    'Proxy_Usage'
-  ],
-  'Email/Phishing': [
-    'Phishing_Source',
-    'Spam_Source',
-    'Email_Harvesting'
-  ],
-  'Malware Related': [
-    'Malware_Download',
-    'Ransomware_Activity',
-    'Botnet_Activity',
-    'Cryptomining'
-  ],
-  'Suspicious Activity': [
-    'Unusual_Hours',
-    'Geographic_Anomaly',
-    'High_Volume_Requests',
-    'Rate_Limiting_Bypass'
-  ]
+  'Authentication': {
+    base: 30,
+    behaviors: [
+      { id: 'Failed_Login_Attempts', label: 'Failed Login Attempts', weight: 10 },
+      { id: 'Password_Spraying', label: 'Password Spraying', weight: 20 },
+      { id: 'Credential_Stuffing', label: 'Credential Stuffing', weight: 25 },
+      { id: 'MFA_Bypass_Attempt', label: 'MFA Bypass Attempt', weight: 30 }
+    ]
+  },
+  'Scanning/Recon': {
+    base: 25,
+    behaviors: [
+      { id: 'Port_Scan', label: 'Port Scan', weight: 25 },
+      { id: 'Directory_Enumeration', label: 'Directory Enumeration', weight: 20 },
+      { id: 'Vulnerability_Scan', label: 'Vulnerability Scan', weight: 25 },
+      { id: 'API_Enumeration', label: 'API Enumeration', weight: 20 }
+    ]
+  },
+  'Data Access': {
+    base: 35,
+    behaviors: [
+      { id: 'Data_Exfiltration', label: 'Data Exfiltration', weight: 35 },
+      { id: 'Unauthorized_Access', label: 'Unauthorized Access', weight: 25 },
+      { id: 'File_Download', label: 'File Download', weight: 20 },
+      { id: 'Sensitive_Data_Access', label: 'Sensitive Data Access', weight: 30 }
+    ]
+  },
+  'Application Attacks': {
+    base: 40,
+    behaviors: [
+      { id: 'SQL_Injection', label: 'SQL Injection', weight: 40 },
+      { id: 'XSS_Attempt', label: 'XSS Attempt', weight: 30 },
+      { id: 'File_Upload', label: 'File Upload', weight: 25 },
+      { id: 'Command_Injection', label: 'Command Injection', weight: 45 }
+    ]
+  },
+  'Network Behavior': {
+    base: 35,
+    behaviors: [
+      { id: 'C2_Communication', label: 'C2 Communication', weight: 45 },
+      { id: 'Abnormal_Traffic', label: 'Abnormal Traffic', weight: 25 },
+      { id: 'DDoS_Attempt', label: 'DDoS Attempt', weight: 40 },
+      { id: 'Proxy_Usage', label: 'Proxy Usage', weight: 20 }
+    ]
+  },
+  'Email/Phishing': {
+    base: 30,
+    behaviors: [
+      { id: 'Phishing_Source', label: 'Phishing Source', weight: 35 },
+      { id: 'Spam_Source', label: 'Spam Source', weight: 25 },
+      { id: 'Email_Harvesting', label: 'Email Harvesting', weight: 20 }
+    ]
+  },
+  'Malware Related': {
+    base: 45,
+    behaviors: [
+      { id: 'Malware_Download', label: 'Malware Download', weight: 40 },
+      { id: 'Ransomware_Activity', label: 'Ransomware Activity', weight: 45 },
+      { id: 'Botnet_Activity', label: 'Botnet Activity', weight: 35 },
+      { id: 'Cryptomining', label: 'Cryptomining', weight: 25 }
+    ]
+  },
+  'Suspicious Activity': {
+    base: 20,
+    behaviors: [
+      { id: 'Unusual_Hours', label: 'Unusual Hours', weight: 15 },
+      { id: 'Geographic_Anomaly', label: 'Geographic Anomaly', weight: 20 },
+      { id: 'High_Volume_Requests', label: 'High Volume Requests', weight: 25 },
+      { id: 'Rate_Limiting_Bypass', label: 'Rate Limiting Bypass', weight: 30 }
+    ]
+  }
 };
 
 export default function InvestigationDetails({ ip, onSave }) {
@@ -58,20 +103,72 @@ export default function InvestigationDetails({ ip, onSave }) {
   const [notes, setNotes] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedBehaviors, setSelectedBehaviors] = useState([]);
+  const [selectedImpact, setSelectedImpact] = useState('Standard');
+  const [selectedResponses, setSelectedResponses] = useState([]);
+  const [selectedInfraType, setSelectedInfraType] = useState('');
   const [customBehavior, setCustomBehavior] = useState('');
-  const [analystRiskScore, setAnalystRiskScore] = useState(0);
-  const [riskJustification, setRiskJustification] = useState('');
+
+  const calculateRiskScore = () => {
+    console.log('Selected Behaviors:', selectedBehaviors);
+    console.log('Selected Impact:', selectedImpact);
+    console.log('Response Actions:', selectedResponses);
+    console.log('Infrastructure Type:', selectedInfraType);
+    let baseScore = 0;
+
+    // Calculate behavior scores
+    selectedBehaviors.forEach((behaviorId) => {
+      for (const category of Object.values(BEHAVIOR_TAGS)) {
+        const behavior = category.behaviors.find(b => b.id === behaviorId);
+        if (behavior) {
+          baseScore += behavior.weight;
+          break;
+        }
+      }
+    });
+
+    // Apply infrastructure type modifier
+    const infraType = INFRASTRUCTURE_TYPES.find(type => type.id === selectedInfraType);
+    if (infraType) {
+      baseScore = baseScore * (1 + infraType.modifier);
+    }
+
+    // Apply client impact multiplier
+    const impactMultiplier = CLIENT_IMPACT[selectedImpact]?.weight || 1.0;
+    baseScore = baseScore * impactMultiplier;
+
+    // Apply response action reductions
+    selectedResponses.forEach((responseId) => {
+      const response = RESPONSE_ACTIONS.find(action => action.id === responseId);
+      if (response) {
+        baseScore += response.weight;
+      }
+    });
+
+    // Ensure score stays between 0 and 100
+    return Math.max(0, Math.min(100, Math.round(baseScore)));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const riskScore = calculateRiskScore();
     onSave({
       ip,
       ticketNumber,
       notes,
       client: selectedClient,
       behaviors: selectedBehaviors,
-      analystRiskScore,
-      riskJustification
+      clientImpact: selectedImpact,
+      responseActions: selectedResponses,
+      infrastructureType: selectedInfraType,
+      analystRiskScore: riskScore,
+      assessmentDetails: {
+        selectedBehaviors,
+        selectedImpact,
+        selectedResponses,
+        selectedInfraType,
+        calculatedScore: riskScore,
+        timestamp: new Date().toISOString()
+      }
     });
     
     // Reset form
@@ -79,18 +176,9 @@ export default function InvestigationDetails({ ip, onSave }) {
     setNotes('');
     setSelectedClient('');
     setSelectedBehaviors([]);
-    setAnalystRiskScore(0);
-    setRiskJustification('');
-  };
-
-  const addBehaviorTag = (behavior) => {
-    if (!selectedBehaviors.includes(behavior)) {
-      setSelectedBehaviors([...selectedBehaviors, behavior]);
-    }
-  };
-
-  const removeBehaviorTag = (behavior) => {
-    setSelectedBehaviors(selectedBehaviors.filter(b => b !== behavior));
+    setSelectedImpact('Standard');
+    setSelectedResponses([]);
+    setSelectedInfraType('');
   };
 
   const addCustomBehavior = () => {
@@ -100,12 +188,15 @@ export default function InvestigationDetails({ ip, onSave }) {
     }
   };
 
+  const removeBehavior = (behavior) => {
+    setSelectedBehaviors(selectedBehaviors.filter(b => b !== behavior));
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm">
       <h2 className="text-xl font-semibold mb-6">Add Investigation Details</h2>
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Ticket Number */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Ticket Number
@@ -119,7 +210,6 @@ export default function InvestigationDetails({ ip, onSave }) {
           />
         </div>
 
-        {/* Client Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Client
@@ -141,121 +231,120 @@ export default function InvestigationDetails({ ip, onSave }) {
           </div>
         </div>
 
-        {/* Risk Assessment Section */}
-        <div className="space-y-4 border-t pt-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Analyst Risk Score (0-100)
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={analystRiskScore}
-                onChange={(e) => setAnalystRiskScore(Number(e.target.value))}
-                className="flex-1"
-              />
-              <span 
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  analystRiskScore >= 80 ? 'bg-red-100 text-red-800' :
-                  analystRiskScore >= 50 ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-green-100 text-green-800'
-                }`}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Client Impact Level
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(CLIENT_IMPACT).map(([level, config]) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => setSelectedImpact(level)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
+                  ${selectedImpact === level 
+                    ? `${config.class} border-2` 
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
               >
-                {analystRiskScore}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Risk Assessment Justification
-            </label>
-            <textarea
-              value={riskJustification}
-              onChange={(e) => setRiskJustification(e.target.value)}
-              placeholder="Explain why you assigned this risk score..."
-              className="w-full px-3 py-2 border rounded-md"
-              rows={3}
-            />
+                {level}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Behavior Tags */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Behavior Tags
+            Infrastructure Type
           </label>
-          
-          {/* Custom Behavior Input */}
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={customBehavior}
-              onChange={(e) => setCustomBehavior(e.target.value)}
-              placeholder="Add custom behavior tag"
-              className="flex-1 px-3 py-2 border rounded-md"
-            />
-            <button
-              type="button"
-              onClick={addCustomBehavior}
-              className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200"
-            >
-              Add
-            </button>
-          </div>
-
-          {/* Predefined Behaviors */}
-          <div className="space-y-4">
-            {Object.entries(BEHAVIOR_TAGS).map(([category, behaviors]) => (
-              <div key={category}>
-                <h3 className="text-sm font-medium text-gray-600 mb-2">{category}</h3>
-                <div className="flex flex-wrap gap-2">
-                  {behaviors.map(behavior => (
-                    <button
-                      key={behavior}
-                      type="button"
-                      onClick={() => addBehaviorTag(behavior)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
-                        ${selectedBehaviors.includes(behavior)
-                          ? 'bg-green-100 text-green-800 border-2 border-green-500'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
-                    >
-                      {behavior.replace(/_/g, ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <div className="flex flex-wrap gap-2">
+            {INFRASTRUCTURE_TYPES.map(type => (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => setSelectedInfraType(type.id)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
+                  ${selectedInfraType === type.id
+                    ? 'bg-purple-100 text-purple-800 border-2 border-purple-500'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+              >
+                {type.label}
+              </button>
             ))}
           </div>
+        </div>
 
-          {/* Selected Behaviors Display */}
-          {selectedBehaviors.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-600 mb-2">Selected Behaviors:</h3>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Behaviors
+          </label>
+          {Object.entries(BEHAVIOR_TAGS).map(([category, { behaviors }]) => (
+            <div key={category} className="mb-4">
+              <h3 className="text-sm font-medium text-gray-600 mb-2">{category}</h3>
               <div className="flex flex-wrap gap-2">
-                {selectedBehaviors.map(behavior => (
-                  <span
-                    key={behavior}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                {behaviors.map(behavior => (
+                  <button
+                    key={behavior.id}
+                    type="button"
+                    onClick={() => {
+                      if (!selectedBehaviors.includes(behavior.id)) {
+                        setSelectedBehaviors([...selectedBehaviors, behavior.id]);
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
+                      ${selectedBehaviors.includes(behavior.id)
+                        ? 'bg-green-100 text-green-800 border-2 border-green-500'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
                   >
-                    {behavior.replace(/_/g, ' ')}
-                    <button
-                      type="button"
-                      onClick={() => removeBehaviorTag(behavior)}
-                      className="hover:text-blue-600"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
+                    {behavior.label}
+                  </button>
                 ))}
               </div>
             </div>
-          )}
+          ))}
         </div>
 
-        {/* Investigation Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Response Actions
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {RESPONSE_ACTIONS.map(action => (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => {
+                  setSelectedResponses(prev => 
+                    prev.includes(action.id)
+                      ? prev.filter(a => a !== action.id)
+                      : [...prev, action.id]
+                  );
+                }}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
+                  ${selectedResponses.includes(action.id)
+                    ? 'bg-green-100 text-green-800 border-2 border-green-500'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-gray-700">
+              Calculated Risk Score
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              calculateRiskScore() >= 80 ? 'bg-red-100 text-red-800' :
+              calculateRiskScore() >= 50 ? 'bg-yellow-100 text-yellow-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              {calculateRiskScore()}%
+            </span>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Investigation Notes
@@ -269,7 +358,41 @@ export default function InvestigationDetails({ ip, onSave }) {
           />
         </div>
 
-        {/* Submit Button */}
+        {/* Selected Behaviors Display */}
+        {selectedBehaviors.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-gray-600 mb-2">Selected Behaviors:</h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedBehaviors.map(behaviorId => {
+                // Find behavior label
+                let behaviorLabel = behaviorId;
+                for (const category of Object.values(BEHAVIOR_TAGS)) {
+                  const behavior = category.behaviors.find(b => b.id === behaviorId);
+                  if (behavior) {
+                    behaviorLabel = behavior.label;
+                    break;
+                  }
+                }
+                return (
+                  <span
+                    key={behaviorId}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                  >
+                    {behaviorLabel}
+                    <button
+                      type="button"
+                      onClick={() => removeBehavior(behaviorId)}
+                      className="hover:text-blue-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors"
