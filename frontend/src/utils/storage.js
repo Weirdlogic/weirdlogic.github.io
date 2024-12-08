@@ -9,7 +9,7 @@ const initializeStorage = () => {
       recentInvestigations: [],
       clientStats: {},
       behaviorStats: {},
-      riskTrends: {}, // Ensure riskTrends is initialized
+      riskTrends: {},
     },
   };
 
@@ -21,10 +21,10 @@ const initializeStorage = () => {
 const getData = () => {
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return data || {}; // Ensure default structure if data is null
+    return data || {};
   } catch (e) {
     console.error('Error reading localStorage:', e);
-    return {}; // Return an empty object if parsing fails
+    return {};
   }
 };
 
@@ -44,21 +44,22 @@ const calculateTimeWeightedScore = (assessments) => {
   let weightSum = 0;
 
   assessments.forEach((assessment) => {
-    if (assessment.calculatedScore == null) return; // Skip invalid scores
+    // Get score from either the root or responseActions
+    const score = assessment.responseActions?.calculatedScore || assessment.calculatedScore || 0;
 
     const ageInDays = (now - new Date(assessment.timestamp)) / (1000 * 60 * 60 * 24);
     let timeWeight;
 
-    if (ageInDays <= 1) timeWeight = 1.0; // Last 24 hours
-    else if (ageInDays <= 7) timeWeight = 0.7; // Last week
-    else if (ageInDays <= 30) timeWeight = 0.4; // Last month
-    else timeWeight = 0.2; // Older
+    if (ageInDays <= 1) timeWeight = 1.0;
+    else if (ageInDays <= 7) timeWeight = 0.7;
+    else if (ageInDays <= 30) timeWeight = 0.4;
+    else timeWeight = 0.2;
 
-    weightedTotal += assessment.calculatedScore * timeWeight;
+    weightedTotal += score * timeWeight;
     weightSum += timeWeight;
   });
 
-  return weightSum === 0 ? 0 : Math.round(weightedTotal / weightSum); // Prevent division by zero
+  return weightSum === 0 ? 0 : Math.round(weightedTotal / weightSum);
 };
 
 const addIPInvestigation = (ip, analyst, ticketNumber = '', notes = '', client = '', behaviors = []) => {
@@ -76,6 +77,7 @@ const addIPInvestigation = (ip, analyst, ticketNumber = '', notes = '', client =
       alerts: [],
       riskAssessments: [],
       lastSearched: new Date().toISOString(),
+      currentRiskScore: 0
     };
   }
 
@@ -96,11 +98,12 @@ const tagIP = (
   clientImpact = null,
   responseActions = [],
   infrastructureType = null,
-  analystRiskScore = null,
+  calculatedScore = null,
   assessmentDetails = null
 ) => {
   const data = getData();
 
+  // Initialize data structures
   if (!data.ipHistory) data.ipHistory = {};
   if (!data.analytics) {
     data.analytics = {
@@ -112,10 +115,6 @@ const tagIP = (
     };
   }
 
-  if (!data.analytics.riskTrends) {
-    data.analytics.riskTrends = {};
-  }
-
   if (!data.ipHistory[ip]) {
     data.ipHistory[ip] = {
       searchCount: 0,
@@ -124,16 +123,14 @@ const tagIP = (
       alerts: [],
       riskAssessments: [],
       lastSearched: new Date().toISOString(),
+      currentRiskScore: 0
     };
   }
 
   const timestamp = new Date().toISOString();
+  const finalScore = Number(calculatedScore) || 0;
 
-  // Ensure `calculatedScore` is computed
-  const calculatedScore =
-    analystRiskScore ??
-    calculateTimeWeightedScore(data.ipHistory[ip].riskAssessments);
-
+  // Create new assessment
   const newAssessment = {
     timestamp,
     analyst,
@@ -143,12 +140,20 @@ const tagIP = (
     clientImpact,
     responseActions,
     infrastructureType,
-    calculatedScore,
-    details: assessmentDetails,
+    calculatedScore: finalScore,
+    details: assessmentDetails
   };
 
+  // Add to risk assessments
   data.ipHistory[ip].riskAssessments.unshift(newAssessment);
 
+  // Calculate new weighted average score
+  const weightedScore = calculateTimeWeightedScore([
+    newAssessment,
+    ...data.ipHistory[ip].riskAssessments.slice(1)
+  ]);
+
+  // Create new tag
   const newTag = {
     ticketNumber,
     createdAt: timestamp,
@@ -159,30 +164,42 @@ const tagIP = (
     clientImpact,
     responseActions,
     infrastructureType,
-    assessment: newAssessment,
+    calculatedScore: finalScore,
+    weightedScore,
+    assessment: newAssessment
   };
 
+  // Update storage with both scores
   data.ipHistory[ip].tags.unshift(newTag);
+  data.ipHistory[ip].currentRiskScore = weightedScore;
+  data.ipHistory[ip].latestScore = finalScore;
 
+  // Update risk trends
   if (!data.analytics.riskTrends[ip]) {
     data.analytics.riskTrends[ip] = [];
   }
+
   data.analytics.riskTrends[ip].push({
     timestamp,
-    score: calculatedScore,
-    details: assessmentDetails,
+    rawScore: finalScore,
+    weightedScore,
+    behaviors,
+    clientImpact,
+    details: {
+      ...assessmentDetails,
+      calculatedScore: finalScore,
+      weightedScore
+    }
   });
 
+  // Maintain 90-day window for trends
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   data.analytics.riskTrends[ip] = data.analytics.riskTrends[ip].filter(
     (trend) => new Date(trend.timestamp) > ninetyDaysAgo
   );
 
-  data.ipHistory[ip].currentRiskScore = calculateTimeWeightedScore(
-    data.ipHistory[ip].riskAssessments
-  );
-
+  // Update behavior and client statistics...
   behaviors.forEach((behavior) => {
     if (!data.analytics.behaviorStats[behavior]) {
       data.analytics.behaviorStats[behavior] = {
@@ -239,6 +256,7 @@ const getIPAnalytics = (ip) => {
 
   return {
     currentRiskScore: ipData.currentRiskScore || 0,
+    latestScore: ipData.latestScore || 0,
     assessmentCount: ipData.riskAssessments?.length || 0,
     lastAssessment: ipData.riskAssessments?.[0] || null,
     riskTrend: getRiskTrend(ip),
@@ -246,6 +264,8 @@ const getIPAnalytics = (ip) => {
       timestamp: tag.createdAt,
       behaviors: tag.behaviors,
       impact: tag.clientImpact,
+      rawScore: tag.calculatedScore,
+      weightedScore: tag.weightedScore
     })),
   };
 };

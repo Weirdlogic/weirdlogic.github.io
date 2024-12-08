@@ -106,67 +106,72 @@ export default function InvestigationDetails({ ip, onSave }) {
   const [selectedImpact, setSelectedImpact] = useState('Standard');
   const [selectedResponses, setSelectedResponses] = useState([]);
   const [selectedInfraType, setSelectedInfraType] = useState('');
-  const [customBehavior, setCustomBehavior] = useState('');
 
   const calculateRiskScore = () => {
-    console.log('Selected Behaviors:', selectedBehaviors);
-    console.log('Selected Impact:', selectedImpact);
-    console.log('Response Actions:', selectedResponses);
-    console.log('Infrastructure Type:', selectedInfraType);
-    let baseScore = 0;
+    let score = 0;
+    const affectedCategories = new Set();
 
-    // Calculate behavior scores
-    selectedBehaviors.forEach((behaviorId) => {
-      for (const category of Object.values(BEHAVIOR_TAGS)) {
-        const behavior = category.behaviors.find(b => b.id === behaviorId);
+    selectedBehaviors.forEach(behaviorId => {
+      for (const [category, data] of Object.entries(BEHAVIOR_TAGS)) {
+        const behavior = data.behaviors.find(b => b.id === behaviorId);
         if (behavior) {
-          baseScore += behavior.weight;
+          score += behavior.weight;
+          affectedCategories.add(category);
           break;
         }
       }
     });
-
-    // Apply infrastructure type modifier
-    const infraType = INFRASTRUCTURE_TYPES.find(type => type.id === selectedInfraType);
-    if (infraType) {
-      baseScore = baseScore * (1 + infraType.modifier);
-    }
-
-    // Apply client impact multiplier
-    const impactMultiplier = CLIENT_IMPACT[selectedImpact]?.weight || 1.0;
-    baseScore = baseScore * impactMultiplier;
-
-    // Apply response action reductions
-    selectedResponses.forEach((responseId) => {
-      const response = RESPONSE_ACTIONS.find(action => action.id === responseId);
-      if (response) {
-        baseScore += response.weight;
-      }
+      // 2. Add category base scores
+    affectedCategories.forEach(category => {
+      const categoryData = BEHAVIOR_TAGS[category];
+      score += (categoryData.base / Math.max(1, selectedBehaviors.length));
     });
 
-    // Ensure score stays between 0 and 100
-    return Math.max(0, Math.min(100, Math.round(baseScore)));
+    // 3. Apply infrastructure modifier
+    if (selectedInfraType) {
+      const infraType = INFRASTRUCTURE_TYPES.find(type => type.id === selectedInfraType);
+      if (infraType) {
+        score *= (1 + infraType.modifier);
+      }
+    }
+
+  // 4. Apply impact multiplier
+    const impactMultiplier = CLIENT_IMPACT[selectedImpact]?.weight || 1.0;
+    score *= impactMultiplier;
+
+  // 5. Apply response actions
+  if (selectedResponses?.length > 0) {
+    selectedResponses.forEach(actionId => {
+      const action = RESPONSE_ACTIONS.find(a => a.id === actionId);
+      if (action) {
+        score += action.weight;
+      }
+    });
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const riskScore = calculateRiskScore();
+    const finalScore = calculateRiskScore();
+
     onSave({
       ip,
       ticketNumber,
       notes,
       client: selectedClient,
       behaviors: selectedBehaviors,
-      clientImpact: selectedImpact,
-      responseActions: selectedResponses,
+      clientImpact: selectedImpact,  // Ensure this is passed
+      responseActions: selectedResponses,  // Just the array
       infrastructureType: selectedInfraType,
-      analystRiskScore: riskScore,
+      calculatedScore: finalScore,  // Pass score directly
       assessmentDetails: {
         selectedBehaviors,
         selectedImpact,
         selectedResponses,
         selectedInfraType,
-        calculatedScore: riskScore,
+        calculatedScore: finalScore,
         timestamp: new Date().toISOString()
       }
     });
@@ -179,13 +184,6 @@ export default function InvestigationDetails({ ip, onSave }) {
     setSelectedImpact('Standard');
     setSelectedResponses([]);
     setSelectedInfraType('');
-  };
-
-  const addCustomBehavior = () => {
-    if (customBehavior && !selectedBehaviors.includes(customBehavior)) {
-      setSelectedBehaviors([...selectedBehaviors, customBehavior]);
-      setCustomBehavior('');
-    }
   };
 
   const removeBehavior = (behavior) => {

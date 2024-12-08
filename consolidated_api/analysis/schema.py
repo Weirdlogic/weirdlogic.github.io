@@ -1,11 +1,14 @@
+# backend/schema.py
+
 def unify_results(abuseipdb, proxycheck, ipqs):
+    """Unify results from multiple IP intelligence sources."""
     # Get IP from responses
     ip = (abuseipdb.get("data", {}).get("ipAddress") 
           or proxycheck.get("status", {}).get("ip") 
           or ipqs.get("host") 
           or "N/A")
     
-    proxy_data = proxycheck.get(ip, {})  # Get the IP-specific proxycheck data
+    proxy_data = proxycheck.get(ip, {})
     abuse_data = abuseipdb.get("data", {})
 
     # Enhanced risk scores
@@ -20,24 +23,14 @@ def unify_results(abuseipdb, proxycheck, ipqs):
         ])
     }
 
-    # Enhanced proxy detection
+    # Use IPQS as source of truth for proxy/VPN detection
     proxy_detection = {
         "abuseipdb": abuse_data.get("isPublic", False),
         "proxycheck": normalize_boolean(proxy_data.get("proxy", "no")),
         "ipqs": ipqs.get("proxy", False),
-        "final_decision": any([
-            abuse_data.get("isPublic", False),
-            normalize_boolean(proxy_data.get("proxy", "no")),
-            ipqs.get("proxy", False)
-        ]),
-        "vpn_detected": any([
-            normalize_boolean(proxy_data.get("vpn", "no")),
-            ipqs.get("vpn", False)
-        ]),
-        "tor_detected": any([
-            abuse_data.get("isTor", False),
-            ipqs.get("tor", False)
-        ])
+        "final_decision": ipqs.get("proxy", False),  # Using IPQS as source of truth
+        "vpn_detected": ipqs.get("vpn", False),      # Using IPQS as source of truth
+        "tor_detected": ipqs.get("tor", False)       # Using IPQS as source of truth
     }
 
     # Enhanced geolocation with all available data
@@ -125,9 +118,15 @@ def normalize_boolean(value):
     return str(value).lower() in ["yes", "true"]
 
 def generate_ip_summary(unified_data):
-    """
-    Generate a human-readable summary and risk assessment of an IP address.
-    """
+    """Generate a human-readable summary and risk assessment of an IP address."""
+    # Known legitimate services
+    KNOWN_SERVICES = {
+        "Google": ["Google", "GCloud", "AS15169"],
+        "Microsoft": ["Microsoft", "Azure", "AS8075"],
+        "Amazon": ["Amazon", "AWS", "AS16509"],
+        "Cloudflare": ["Cloudflare", "AS13335"]
+    }
+
     risk_level = "LOW"
     concerns = []
     
@@ -137,26 +136,54 @@ def generate_ip_summary(unified_data):
         risk_level = "HIGH"
     elif highest_risk >= 50:
         risk_level = "MEDIUM"
-        
-    # Check proxy/VPN status
-    if unified_data["proxy_detection"]["final_decision"]:
-        concerns.append("This is a proxy/VPN IP address")
-        if unified_data.get("network_info", {}).get("isp", {}).get("vpn_provider") != "N/A":
+    
+    # Check if known service
+    network_info = unified_data["network_info"]
+    is_known_service = False
+    service_name = None
+    
+    for service, patterns in KNOWN_SERVICES.items():
+        if any(pattern in network_info["isp"]["primary"] or 
+               pattern in network_info["asn"]["number"] 
+               for pattern in patterns):
+            is_known_service = True
+            service_name = service
+            break
+
+    # Get IPQS data for VPN/proxy detection
+    ipqs_data = unified_data["detailed_results"]["ipqs"]
+
+    # Add connection type information
+    if ipqs_data.get("vpn", False):
+        concerns.append("VPN Connection Detected")
+        if unified_data["network_info"]["isp"]["vpn_provider"] != "N/A":
             concerns.append(f"VPN Provider: {unified_data['network_info']['isp']['vpn_provider']}")
-            
-    # Check security indicators
-    security_info = unified_data.get("security_info", {})
-    if security_info.get("recent_abuse"):
-        concerns.append("Recent abuse detected")
-    if security_info.get("bot_status"):
-        concerns.append("Bot activity detected")
-    if security_info.get("is_crawler"):
-        concerns.append("Crawler/spider behavior detected")
+    
+    if ipqs_data.get("proxy", False):
+        concerns.append("Proxy Connection Detected")
+    
+    if ipqs_data.get("tor", False):
+        concerns.append("Tor Exit Node Detected")
+
+    # Add infrastructure information if it's a known service
+    if is_known_service:
+        concerns.append(f"Known {service_name} Infrastructure")
+    else:
+        # Only check these for unknown services
+        security_info = unified_data["security_info"]
+        if security_info.get("recent_abuse"):
+            concerns.append("Recent abuse detected")
         
-    # Check abuse history
-    abuse_history = security_info.get("abuse_history", {})
-    if abuse_history.get("total_reports", 0) > 0:
-        concerns.append(f"Previously reported {abuse_history['total_reports']} times")
+        # Add bot/crawler info only if not a known service
+        if security_info.get("bot_status"):
+            concerns.append("Bot activity detected")
+        if security_info.get("is_crawler"):
+            concerns.append("Crawler activity detected")
+        
+        # Add abuse history only if significant
+        abuse_history = security_info.get("abuse_history", {})
+        if abuse_history.get("total_reports", 0) > 10:
+            concerns.append(f"Previously reported {abuse_history['total_reports']} times")
 
     # Generate summary
     summary = {
@@ -164,7 +191,10 @@ def generate_ip_summary(unified_data):
         "risk_score": highest_risk,
         "location": f"{unified_data['geolocation']['city']['proxycheck']}, {unified_data['geolocation']['country']['name']}",
         "concerns": concerns,
-        "recommendation": "BLOCK" if risk_level == "HIGH" or len(concerns) >= 2 else "CAUTION" if risk_level == "MEDIUM" or concerns else "ALLOW"
+        "recommendation": ("ALLOW" if is_known_service else
+                         "BLOCK" if risk_level == "HIGH" or len(concerns) >= 2 else
+                         "CAUTION" if risk_level == "MEDIUM" or concerns else
+                         "ALLOW")
     }
     
     # Generate human-readable text
@@ -174,7 +204,7 @@ Location: {summary['location']}
 """
 
     if concerns:
-        text_summary += "\nConcerns Identified:\n- " + "\n- ".join(concerns)
+        text_summary += "\nContext and Findings:\n- " + "\n- ".join(concerns)
     else:
         text_summary += "\nNo significant concerns identified."
         

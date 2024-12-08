@@ -5,30 +5,55 @@ import InvestigationDetails from './InvestigationDetails';
 import { EmailAlerts } from './Alerts/EmailAlerts';
 import { storage } from '../../utils/storage';
 
-export const ResultsPanel = ({ data, onExport }) => {
-  // Retrieve the latest analyst score for the given IP
-  const getLatestAnalystScore = (ip) => {
-    const storageData = storage.getData();
-    const ipData = storageData.ipHistory[ip];
-    if (!ipData?.riskAssessments) return null;
+// Helper functions with null checks
+const getActualScore = (assessment) => {
+  if (!assessment) return 0;
+  return assessment.responseActions?.calculatedScore ?? assessment.calculatedScore ?? 0;
+};
 
-    const latestAssessment = ipData.riskAssessments
-      .filter((assessment) => assessment.calculatedScore !== undefined)
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+const getActualImpact = (assessment) => {
+  if (!assessment) return 'Standard';
+  return assessment.responseActions?.selectedImpact ?? assessment.clientImpact ?? 'Standard';
+};
 
-    return latestAssessment?.calculatedScore;
-  };
+const getActualInfraType = (assessment) => {
+  if (!assessment) return null;
+  return assessment.responseActions?.selectedInfraType ?? assessment.infrastructureType ?? null;
+};
 
-  // Handle saving investigation details
+const getLatestAnalystScore = (ip) => {
+  if (!ip) return null;
+  const storageData = storage.getData();
+  const ipData = storageData?.ipHistory?.[ip];
+  if (!ipData?.riskAssessments?.length) return null;
+
+  const latestAssessment = ipData.riskAssessments[0];
+  return getActualScore(latestAssessment);
+};
+
+export const ResultsPanel = ({ data = {}, onExport }) => {
+  if (!data) return null;  // Early return if no data
+
+  // Get latest assessment and its details with null checks
+  const latestAssessment = data?.riskAssessments?.[0];
+  const score = getActualScore(latestAssessment);
+  const impact = getActualImpact(latestAssessment);
+  const infraType = getActualInfraType(latestAssessment);
+  const ipqsData = data?.detailed_results?.ipqs || {};
+
   const handleInvestigationSave = ({
     ip,
     ticketNumber,
     notes,
     client,
     behaviors,
-    analystRiskScore,
-    assessmentDetails,
+    clientImpact,
+    responseActions,
+    infrastructureType,
+    calculatedScore,
+    assessmentDetails
   }) => {
+    if (!ip) return;
     storage.tagIP(
       ip,
       ticketNumber,
@@ -36,32 +61,33 @@ export const ResultsPanel = ({ data, onExport }) => {
       notes,
       client,
       behaviors,
-      analystRiskScore,
+      clientImpact,
+      responseActions,
+      infrastructureType,
+      calculatedScore,
       assessmentDetails
     );
   };
 
-  // Get the latest analyst assessment score for the current IP
-  const analystScore = getLatestAnalystScore(data.ip);
-  const ipqsData = data.detailed_results?.ipqs || {};
+  // Get analyst score
+  const analystScore = data.ip ? getLatestAnalystScore(data.ip) : null;
+
+  const getRiskColorClass = (value) => {
+    const numValue = Number(value) || 0;
+    if (numValue >= 80) return 'text-red-600';
+    if (numValue >= 50) return 'text-yellow-600';
+    return 'text-green-600';
+  };
 
   return (
     <div className="space-y-6 mt-4">
       {/* Previously investigated banner */}
-      {storage.getData()?.ipHistory?.[data.ip]?.searchCount > 1 && (
+      {data.ip && storage.getData()?.ipHistory?.[data.ip]?.searchCount > 1 && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-yellow-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
@@ -94,15 +120,7 @@ export const ResultsPanel = ({ data, onExport }) => {
               <div className="text-sm text-gray-500">
                 {key.charAt(0).toUpperCase() + key.slice(1)}
               </div>
-              <div
-                className={`text-2xl font-bold ${
-                  value >= 80
-                    ? 'text-red-600'
-                    : value >= 50
-                    ? 'text-yellow-600'
-                    : 'text-green-600'
-                }`}
-              >
+              <div className={`text-2xl font-bold ${getRiskColorClass(value)}`}>
                 {value}%
               </div>
             </div>
@@ -112,15 +130,7 @@ export const ResultsPanel = ({ data, onExport }) => {
           <div className="p-4 border-2 border-blue-500 rounded-lg text-center">
             <div className="text-sm text-gray-500">Analyst Assessment</div>
             {analystScore !== null ? (
-              <div
-                className={`text-2xl font-bold ${
-                  analystScore >= 80
-                    ? 'text-red-600'
-                    : analystScore >= 50
-                    ? 'text-yellow-600'
-                    : 'text-green-600'
-                }`}
-              >
+              <div className={`text-2xl font-bold ${getRiskColorClass(analystScore)}`}>
                 {analystScore}%
               </div>
             ) : (
@@ -129,37 +139,35 @@ export const ResultsPanel = ({ data, onExport }) => {
           </div>
         </div>
 
+        {/* Infrastructure Info */}
+        {infraType && (
+          <div className="mb-6">
+            <h3 className="text-lg font-medium mb-2">Infrastructure Type</h3>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <span className="font-medium">{infraType}</span>
+            </div>
+          </div>
+        )}
+
         {/* Connection Information */}
         <div className="mb-6">
           <h3 className="text-lg font-medium mb-2">Connection Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium">VPN Status:</span>
-              <span
-                className={`ml-2 ${
-                  ipqsData.vpn ? 'text-yellow-600' : 'text-green-600'
-                }`}
-              >
+              <span className={`ml-2 ${ipqsData.vpn ? 'text-yellow-600' : 'text-green-600'}`}>
                 {ipqsData.vpn ? 'VPN Detected' : 'Not a VPN'}
               </span>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium">Proxy Status:</span>
-              <span
-                className={`ml-2 ${
-                  ipqsData.proxy ? 'text-yellow-600' : 'text-green-600'
-                }`}
-              >
+              <span className={`ml-2 ${ipqsData.proxy ? 'text-yellow-600' : 'text-green-600'}`}>
                 {ipqsData.proxy ? 'Proxy Detected' : 'Not a Proxy'}
               </span>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium">Tor Status:</span>
-              <span
-                className={`ml-2 ${
-                  ipqsData.tor ? 'text-yellow-600' : 'text-green-600'
-                }`}
-              >
+              <span className={`ml-2 ${ipqsData.tor ? 'text-yellow-600' : 'text-green-600'}`}>
                 {ipqsData.tor ? 'Tor Exit Node' : 'Not Tor'}
               </span>
             </div>
@@ -175,9 +183,7 @@ export const ResultsPanel = ({ data, onExport }) => {
                 <li
                   key={index}
                   className={`${
-                    concern.startsWith('Known')
-                      ? 'text-blue-600'
-                      : 'text-gray-700'
+                    concern.startsWith('Known') ? 'text-blue-600' : 'text-gray-700'
                   }`}
                 >
                   {concern}
@@ -231,7 +237,7 @@ export const ResultsPanel = ({ data, onExport }) => {
       {/* Investigation History */}
       <IPHistory ip={data.ip} />
 
-      {/* Enhanced Investigation Details */}
+      {/* Investigation Details */}
       <InvestigationDetails ip={data.ip} onSave={handleInvestigationSave} />
 
       {/* Email Alerts */}
