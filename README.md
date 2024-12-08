@@ -221,15 +221,96 @@ GET /analysis/client/{client_id}/  # Get client-specific IOCs
 
 ### Adding New Features
 
-1. New Investigation Fields:
-   - Update models in backend
-   - Add UI components
-   - Update report templates
+1. New Integrations
 
-2. Custom Analytics:
-   - Add new metrics
-   - Create visualizations
-   - Update dashboard components
+#### Shodan Integration
+- Real-time asset discovery and monitoring
+- Vulnerability identification
+- Service enumeration
+- Historical exposure analysis
+- Integration benefits:
+  - Proactive threat hunting
+  - Enhanced asset visibility
+  - Early warning system for exposed services
+  - Historical internet exposure context
+
+#### Enhanced Ticketing Integration
+- ServiceNow Integration
+  - Bi-directional status sync
+  - Asset relationship mapping
+
+- Jira Integration
+  - Automated ticket creation
+  - Custom SOC workflow templates
+  - Team collaboration features
+
+### 2. Custom Analytics Implementation
+
+#### A. New Metrics System
+- Investigation Response Times
+  - Time to detection tracking
+  - Analysis duration metrics
+  - Resolution timeframe analysis
+  - Escalation pattern monitoring
+- Threat Intelligence Metrics
+  - Actor pattern recognition
+  - Campaign correlation analysis
+  - Geographic attack distribution
+  - Attack vector frequency
+  - Mitre Attack Mapping
+
+#### B. Advanced Visualizations
+- Attack pattern heatmaps
+- Geographic distribution maps
+- Related IP network graphs
+- Timeline visualizations
+- Impact assessment matrices
+- Trend analysis charts
+
+#### C. Dashboard Enhancement
+- Customizable widget system
+- Dynamic layout management
+- Advanced filtering
+- Export capabilities
+
+### 3. Threat Hunting System
+
+#### A. Hunt Creation and Management
+```javascript
+const ThreatHuntingDashboard = () => {
+  const [huntingRules, setHuntingRules] = useState([]);
+  const [matches, setMatches] = useState([]);
+
+  const createHuntingRule = (rule) => {
+    // Validate rule syntax
+    // Add to hunting ruleset
+    // Schedule execution
+  };
+
+  const runHunt = async () => {
+    // Execute hunting rules
+    // Process matches
+    // Generate reports
+  };
+
+  return (
+    <div className="hunting-dashboard">
+      <RuleEditor onSave={createHuntingRule} />
+      <MatchesList matches={matches} />
+      <HuntingMetrics />
+    </div>
+  );
+};
+```
+
+#### B. Pattern Recognition
+- ML-based clustering for IP behavior
+- Automated pattern detection
+- Behavior analysis
+- Attack signature matching
+- Anomaly detection
+- Dynamic IOC extraction
+
 
 ## Troubleshooting
 
@@ -239,9 +320,4 @@ Common Issues:
 - Report generation
 - Data consistency
 
-## Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Commit changes
-4. Create Pull Request
+*Built by a SOC Analyst*
