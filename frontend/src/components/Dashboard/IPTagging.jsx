@@ -9,7 +9,7 @@ export const IPTagging = ({ ip, onTagAdded }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    storage.tagIP(ip, ticketNumber, 'analyst@company.com', notes);
+    storage.tagIP(ip, ticketNumber, 'U199@cybers.eu', notes);
     setTicketNumber('');
     setNotes('');
     if (onTagAdded) onTagAdded();

@@ -56,7 +56,7 @@ export const ResultsPanel = ({ data = {}, onExport }) => {
     storage.tagIP(
       ip,
       ticketNumber,
-      'analyst@company.com',
+      'U199@cybers.eu',
       notes,
       client,
       behaviors,

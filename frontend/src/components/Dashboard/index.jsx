@@ -50,7 +50,7 @@ const Dashboard = () => {
       // Track this search with enhanced data structure
       storage.addIPInvestigation(
         ip,
-        'analyst@company.com', // We'll add real authentication later
+        'U199@cybers.eu', // We'll add real authentication later
         '', // Initial ticket number
         '', // Initial notes
         '', // Initial client
