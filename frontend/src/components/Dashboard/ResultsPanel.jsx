@@ -36,7 +36,6 @@ export const ResultsPanel = ({ data = {}, onExport }) => {
 
   // Get latest assessment and its details with null checks
   const latestAssessment = data?.riskAssessments?.[0];
-  const score = getActualScore(latestAssessment);
   const impact = getActualImpact(latestAssessment);
   const infraType = getActualInfraType(latestAssessment);
   const ipqsData = data?.detailed_results?.ipqs || {};
@@ -71,6 +70,10 @@ export const ResultsPanel = ({ data = {}, onExport }) => {
 
   // Get analyst score
   const analystScore = data.ip ? getLatestAnalystScore(data.ip) : null;
+
+  // Get current risk score and latest score
+  const currentRiskScore = data.ip ? storage.getIPAnalytics(data.ip)?.currentRiskScore || 0 : 0;
+  const latestScore = data.ip ? storage.getIPAnalytics(data.ip)?.latestScore || 0 : 0;
 
   const getRiskColorClass = (value) => {
     const numValue = Number(value) || 0;
@@ -125,6 +128,15 @@ export const ResultsPanel = ({ data = {}, onExport }) => {
               </div>
             </div>
           ))}
+
+          {/* Current Risk Score */}
+          <div className="p-4 border rounded-lg text-center">
+            <div className="text-sm text-gray-500">Current Risk</div>
+            <div className={`text-2xl font-bold ${getRiskColorClass(currentRiskScore)}`}>
+              {currentRiskScore}%
+            </div>
+          </div>
+
 
           {/* Analyst Assessment Score */}
           <div className="p-4 border-2 border-blue-500 rounded-lg text-center">
