@@ -1,6 +1,7 @@
 // src/components/Dashboard/RealtimeMonitor.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getBaseUrl } from '../../utils/config';
 
 export const RealtimeMonitor = ({ ipsToMonitor }) => {
   const [monitoringData, setMonitoringData] = useState({});
@@ -10,10 +11,11 @@ export const RealtimeMonitor = ({ ipsToMonitor }) => {
     let interval;
     if (isMonitoring && ipsToMonitor.length > 0) {
       interval = setInterval(async () => {
+        const baseUrl = getBaseUrl();
         const newData = {};
         for (const ip of ipsToMonitor) {
           try {
-            const response = await axios.get(`http://127.0.0.1:8000/analysis/analyze/${ip}/`);
+            const response = await axios.get(`${baseUrl}/analyze/${ip}/`);
             newData[ip] = {
               timestamp: new Date(),
               data: response.data
@@ -23,7 +25,7 @@ export const RealtimeMonitor = ({ ipsToMonitor }) => {
           }
         }
         setMonitoringData(prev => ({ ...prev, ...newData }));
-      }, 300000); // Check every 5 minutes
+      }, 300000);
     }
     return () => clearInterval(interval);
   }, [isMonitoring, ipsToMonitor]);

@@ -14,6 +14,7 @@ import { RealtimeMonitor } from './RealtimeMonitor';
 import { storage } from '../../utils/storage';
 import { AnalyticsDashboard } from './Analytics/AnalyticsDashboard';
 import { IPRelationshipGraph } from './Relationships/IPRelationshipGraph';
+import { getBaseUrl } from '../../utils/config';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('search');
@@ -43,14 +44,15 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/analysis/analyze/${ip}/`);
+      const baseUrl = getBaseUrl();
+      const response = await axios.get(`${baseUrl}/analyze/${ip}/`);
       const analysisData = response.data;
       setCurrentAnalysis(analysisData);
       
       // Track this search with enhanced data structure
       storage.addIPInvestigation(
         ip,
-        'U199@cybers.eu', // We'll add real authentication later
+        'alpha@beta.com', // We'll add real authentication later
         '', // Initial ticket number
         '', // Initial notes
         '', // Initial client

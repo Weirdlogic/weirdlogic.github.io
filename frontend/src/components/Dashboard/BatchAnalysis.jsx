@@ -1,6 +1,8 @@
 // src/components/Dashboard/BatchAnalysis.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getBaseUrl } from '../../utils/config';
+
 
 export const BatchAnalysis = () => {
   const [ips, setIps] = useState('');
@@ -13,8 +15,9 @@ export const BatchAnalysis = () => {
     setLoading(true);
 
     try {
+      const baseUrl = getBaseUrl();
       const analysisPromises = ipList.map(ip => 
-        axios.get(`http://127.0.0.1:8000/analysis/analyze/${ip}/`)
+        axios.get(`${baseUrl}/analyze/${ip}/`)  // Just /analyze/ because baseUrl already has /analysis
       );
       
       const responses = await Promise.allSettled(analysisPromises);

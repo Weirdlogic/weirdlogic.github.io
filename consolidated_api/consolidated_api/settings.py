@@ -108,6 +108,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  # React app URL
+    "https://organic-acorn-r5rx9gq7pw5hppw4-3000.app.github.dev",
 ]
 
 

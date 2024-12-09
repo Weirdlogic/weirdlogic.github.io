@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Tag, X } from 'lucide-react';
 
-const CLIENT_TAGS = ['HANZA', 'LHV', 'ERGO', 'LUMINOR'];
+const CLIENT_TAGS = ['MICROSOFT', 'FACEBOOK', 'YAHOO', 'GOOGLE'];
 
 const CLIENT_IMPACT = {
   'Critical': { weight: 1.5, class: 'bg-red-100 text-red-800' },
